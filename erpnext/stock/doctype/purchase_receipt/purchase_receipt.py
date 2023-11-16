@@ -132,8 +132,8 @@ class PurchaseReceipt(BuyingController):
 
 		self.check_on_hold_or_closed_status()
 
-		if getdate(self.posting_date) > getdate(nowdate()):
-			throw(_("Posting Date cannot be future date"))
+		# if getdate(self.posting_date) > getdate(nowdate()):
+		# 	throw(_("Posting Date cannot be future date"))
 
 		self.get_current_stock()
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
