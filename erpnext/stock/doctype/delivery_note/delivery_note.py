@@ -274,7 +274,7 @@ class DeliveryNote(SellingController):
 
 		self.make_gl_entries_on_cancel()
 		self.repost_future_sle_and_gle()
-		self.ignore_linked_doctypes = ("GL Entry", "Stock Ledger Entry", "Repost Item Valuation")
+		self.ignore_linked_doctypes = ("GL Entry", "Stock Ledger Entry", "Repost Item Valuation", "Payment Ledger Entry")
 
 	def check_credit_limit(self):
 		from erpnext.selling.doctype.customer.customer import check_credit_limit
@@ -639,6 +639,7 @@ def make_sales_invoice(source_name, target_doc=None):
 					"name": "dn_detail",
 					"parent": "delivery_note",
 					"so_detail": "so_detail",
+					"incoming_rate": "custom_incoming_rate",
 					"against_sales_order": "sales_order",
 					"serial_no": "serial_no",
 					"cost_center": "cost_center",

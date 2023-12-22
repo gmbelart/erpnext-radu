@@ -24,6 +24,7 @@ from erpnext.accounts.doctype.tax_withholding_category.tax_withholding_category 
 from erpnext.accounts.general_ledger import get_round_off_account_and_cost_center
 from erpnext.accounts.party import get_due_date, get_party_account, get_party_details
 from erpnext.accounts.utils import cancel_exchange_gain_loss_journal, get_account_currency
+from erpnext.stock.utils import get_incoming_rate
 from erpnext.assets.doctype.asset.depreciation import (
 	depreciate_asset,
 	get_disposal_account_and_cost_center,
@@ -1074,6 +1075,82 @@ class SalesInvoice(SellingController):
 				)
 			)
 
+	def make_hpp_gl_entry(self, gl_entries):
+		# because rounded_total had value even before introduction of posting GLE based on rounded total
+		total = 0
+		for item in self.items:
+			item_rate = item.custom_incoming_rate
+			if not item_rate:
+				item_rate = get_incoming_rate(
+					{
+						"item_code": item.item_code,
+						"warehouse": item.warehouse,
+						"posting_date": self.posting_date,
+						"posting_time": self.posting_time,
+						"qty": -1 * flt(item.get("stock_qty")),
+						"serial_no": item.serial_no,
+						"company": self.company,
+						"voucher_type": "Sales Invoice",
+						"voucher_no": self.name,
+						"allow_zero_valuation": item.get("allow_zero_valuation"),
+					},
+					raise_error_if_no_rate=False,
+				)
+			
+			total += (item_rate * item.qty)
+
+		base_grand_total = flt(
+			total,
+			self.precision("base_grand_total"),
+		)
+
+		if not base_grand_total:
+			base_grand_total = 0
+
+		gl_entries.append(
+			self.get_gl_dict(
+				{
+					"account": self.debit_to,
+					"party_type": "Customer",
+					"party": self.customer,
+					"due_date": self.due_date,
+					"against": self.against_income_account,
+					"debit": base_grand_total,
+					"debit_in_account_currency": base_grand_total,
+					"against_voucher": self.return_against
+					if cint(self.is_return) and self.return_against
+					else self.name,
+					"against_voucher_type": self.doctype,
+					"cost_center": self.cost_center,
+					"project": self.project,
+				},
+				self.party_account_currency,
+				item=self,
+			)
+		)
+  
+		gl_entries.append(
+			self.get_gl_dict(
+				{
+					"account": self.debit_to,
+					"party_type": "Customer",
+					"party": self.customer,
+					"due_date": self.due_date,
+					"against": self.against_income_account,
+					"debit": base_grand_total,
+					"debit_in_account_currency": base_grand_total,
+					"against_voucher": self.return_against
+					if cint(self.is_return) and self.return_against
+					else self.name,
+					"against_voucher_type": self.doctype,
+					"cost_center": self.cost_center,
+					"project": self.project,
+				},
+				self.party_account_currency,
+				item=self,
+			)
+		)
+
 	def make_tax_gl_entries(self, gl_entries):
 		enable_discount_accounting = cint(
 			frappe.db.get_single_value("Selling Settings", "enable_discount_accounting")
@@ -1190,6 +1267,63 @@ class SalesInvoice(SellingController):
 										if account_currency == self.company_currency
 										else flt(amount, item.precision("net_amount"))
 									),
+									"cost_center": item.cost_center,
+									"project": item.project or self.project,
+								},
+								account_currency,
+								item=item,
+							)
+						)
+
+						item_rate = item.custom_incoming_rate
+						if not item_rate:
+							item_rate = get_incoming_rate(
+								{
+									"item_code": item.item_code,
+									"warehouse": item.warehouse,
+									"posting_date": self.posting_date,
+									"posting_time": self.posting_time,
+									"qty": -1 * flt(item.get("stock_qty")),
+									"serial_no": item.serial_no,
+									"company": self.company,
+									"voucher_type": "Sales Invoice",
+									"voucher_no": self.name,
+									"allow_zero_valuation": item.get("allow_zero_valuation"),
+								},
+								raise_error_if_no_rate=False,
+							)
+						
+						total_rate = (item_rate * item.qty)
+						unbill_account = frappe.get_cached_value(
+							"Company", self.company, "custom_item_sent_but_not_billed"
+						)
+						expense_account = item.expense_account if item.expense_account else frappe.get_cached_value(
+							"Company", self.company, "default_expense_account"
+						)
+						gl_entries.append(
+							self.get_gl_dict(
+								{
+									"account": unbill_account,
+									"against": expense_account,
+									"party_type": "Customer",
+									"party": self.customer,
+									"debit": -1 * flt(total_rate, item.precision("base_net_amount")),
+									"cost_center": item.cost_center,
+									"project": item.project or self.project,
+								},
+								account_currency,
+								item=item,
+							)
+						)
+
+						gl_entries.append(
+							self.get_gl_dict(
+								{
+									"account": expense_account,
+									"against": unbill_account,
+									"party_type": "Customer",
+									"party": self.customer,
+									"debit": flt(total_rate, item.precision("base_net_amount")),
 									"cost_center": item.cost_center,
 									"project": item.project or self.project,
 								},

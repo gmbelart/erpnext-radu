@@ -150,41 +150,60 @@ class StockController(AccountsController):
 						sle_rounding_diff += flt(sle.stock_value_difference)
 
 						self.check_expense_account(item_row)
-
-						# expense account/ target_warehouse / source_warehouse
-						if item_row.get("target_warehouse"):
-							warehouse = item_row.get("target_warehouse")
-							expense_account = warehouse_account[warehouse]["account"]
+						
+						delivery_note_expense = frappe.get_cached_value(
+							"Company", self.company, "custom_item_sent_but_not_billed"
+						)
+						is_from_dn = False
+						if item_row.doctype == "Delivery Note Item" and delivery_note_expense:
+							is_from_dn = True
+							expense_account = delivery_note_expense
 						else:
-							expense_account = item_row.expense_account
+							# expense account/ target_warehouse / source_warehouse
+							if item_row.get("target_warehouse"):
+								warehouse = item_row.get("target_warehouse")
+								expense_account = warehouse_account[warehouse]["account"]
+							else:
+								expense_account = item_row.expense_account
 
+						data_gl_dict = {
+							"account": warehouse_account[sle.warehouse]["account"],
+							"against": expense_account,
+							"cost_center": item_row.cost_center,
+							"project": item_row.project or self.get("project"),
+							"remarks": self.get("remarks") or _("Accounting Entry for Stock"),
+							"debit": flt(sle.stock_value_difference, precision),
+							"is_opening": item_row.get("is_opening") or self.get("is_opening") or "No",
+						}
+						if is_from_dn:
+							data_gl_dict['party_type'] = 'Customer'
+							data_gl_dict['party'] = self.get('customer')
+       
 						gl_list.append(
 							self.get_gl_dict(
-								{
-									"account": warehouse_account[sle.warehouse]["account"],
-									"against": expense_account,
-									"cost_center": item_row.cost_center,
-									"project": item_row.project or self.get("project"),
-									"remarks": self.get("remarks") or _("Accounting Entry for Stock"),
-									"debit": flt(sle.stock_value_difference, precision),
-									"is_opening": item_row.get("is_opening") or self.get("is_opening") or "No",
-								},
+								data_gl_dict,
 								warehouse_account[sle.warehouse]["account_currency"],
 								item=item_row,
 							)
 						)
 
+						data_gl_dict = {
+							"account": expense_account,
+							"against": warehouse_account[sle.warehouse]["account"],
+							"cost_center": item_row.cost_center,
+							"remarks": self.get("remarks") or _("Accounting Entry for Stock"),
+							"debit": -1 * flt(sle.stock_value_difference, precision),
+							"project": item_row.get("project") or self.get("project"),
+							"is_opening": item_row.get("is_opening") or self.get("is_opening") or "No",
+						}
+	
+						if is_from_dn:
+							data_gl_dict['party_type'] = 'Customer'
+							data_gl_dict['party'] = self.get('customer')
+       
 						gl_list.append(
 							self.get_gl_dict(
-								{
-									"account": expense_account,
-									"against": warehouse_account[sle.warehouse]["account"],
-									"cost_center": item_row.cost_center,
-									"remarks": self.get("remarks") or _("Accounting Entry for Stock"),
-									"debit": -1 * flt(sle.stock_value_difference, precision),
-									"project": item_row.get("project") or self.get("project"),
-									"is_opening": item_row.get("is_opening") or self.get("is_opening") or "No",
-								},
+								data_gl_dict,
 								item=item_row,
 							)
 						)
