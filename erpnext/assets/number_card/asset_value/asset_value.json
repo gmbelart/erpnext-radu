@@ -1,5 +1,5 @@
 {
- "aggregate_function_based_on": "value_after_depreciation",
+ "aggregate_function_based_on": "gross_purchase_amount",
  "creation": "2020-07-14 18:23:53.302457",
  "docstatus": 0,
  "doctype": "Number Card",
@@ -10,8 +10,8 @@
  "is_public": 1,
  "is_standard": 1,
  "label": "Asset Value",
- "modified": "2020-07-21 18:13:47.647997",
- "modified_by": "Administrator",
+ "modified": "2023-12-19 11:41:42.456168",
+ "modified_by": "fachrul@mail.kubika.id",
  "module": "Assets",
  "name": "Asset Value",
  "owner": "Administrator",
