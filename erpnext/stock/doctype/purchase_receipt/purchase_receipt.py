@@ -243,8 +243,19 @@ class PurchaseReceipt(BuyingController):
 				check_list.append(d.purchase_order)
 				check_on_hold_or_closed_status("Purchase Order", d.purchase_order)
 
+	def before_submit(self):
+		self.old_set_posting_time = self.set_posting_time
+		if self.old_set_posting_time:
+			self.old_posting_date = self.posting_date
+			self.old_posting_time = self.posting_time
+ 
 	# on submit
 	def on_submit(self):
+		if getattr(self, 'old_set_posting_time', 0):
+			self.set_posting_time = self.old_set_posting_time
+			self.posting_date = self.old_posting_date
+			self.posting_time = self.old_posting_time
+  
 		super(PurchaseReceipt, self).on_submit()
 
 		# Check for Approving Authority
