@@ -776,6 +776,7 @@ def make_sales_invoice(source_name, target_doc=None, ignore_permissions=False):
 				"field_map": {
 					"party_account_currency": "party_account_currency",
 					"payment_terms_template": "payment_terms_template",
+					"market_type": "custom_market_type",
 				},
 				"field_no_map": ["payment_terms_template"],
 				"validation": {"docstatus": ["=", 1]},
