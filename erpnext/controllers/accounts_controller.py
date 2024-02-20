@@ -145,6 +145,7 @@ class AccountsController(TransactionBase):
 					)
 
 	def validate(self):
+		items = self.items.copy()
 		if not self.get("is_return") and not self.get("is_debit_note"):
 			self.validate_qty_is_not_zero()
 
@@ -152,6 +153,7 @@ class AccountsController(TransactionBase):
 			self.set_missing_values(for_validate=True)
 
 		self.ensure_supplier_is_not_blocked()
+		self.items = items
 
 		self.validate_date_with_fiscal_year()
 		self.validate_party_accounts()
